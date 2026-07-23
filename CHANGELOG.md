@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2] — 2026-07-23
+### Behoben
+- **Earnings funktioniert jetzt auch mit Twelve Data** (Endpoint `/earnings`, gratis) — kein
+  zweiter API-Key mehr nötig. Alpha Vantage bleibt weiter unterstützt.
+- Kursreaktion wird jetzt korrekt als Bewegung am **1. Handelstag nach dem Bericht** berechnet
+  (Tesla berichtet nach Börsenschluss), statt am Berichtstag selbst.
+- Earnings-Tabelle zeigt zusätzlich die **EPS-Überraschung** je Quartal.
+
 ## [1.1.1] — 2026-07-23
 ### Behoben / Geändert
 - **Twelve Data ist jetzt Standard-Anbieter** — liefert gratis die volle Kurshistorie (CORS-fähig).

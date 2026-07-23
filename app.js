@@ -2,7 +2,7 @@
 /* ============================================================
    TSLA Signal — technisches Analyse-Dashboard (keine Anlageberatung)
    ============================================================ */
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.1.2';
 
 /* ---------- Storage ---------- */
 const LS = {
@@ -583,25 +583,36 @@ function renderBacktest(){
 async function loadEarnings(){
   const sym=cfg.symbol.trim().toUpperCase(), key=cfg.apiKey.trim();
   if(!key){ banner('Kein API-Schlüssel. Öffne „Setup".','err'); return; }
-  if(cfg.provider!=='alphavantage'){ banner('Earnings-Reaktion ist nur mit Alpha Vantage verfügbar.','info',4000); return; }
+  if(!DATA){ banner('Erst Kursdaten laden (Setup → Speichern & Laden).','err'); return; }
   try{
     $('#loadEarnings').textContent='Lade…';
-    const url=`https://www.alphavantage.co/query?function=EARNINGS&symbol=${sym}&apikey=${key}`;
-    const j=await (await fetch(url)).json();
-    if(j['Note']||j['Information']) throw new Error('Limit/Key-Problem: '+(j['Note']||j['Information']));
-    const q=j.quarterlyEarnings; if(!q) throw new Error('Keine Earnings-Daten erhalten.');
-    // Kursreaktion: Close am reportedDate vs Close am Vortag
+    // Berichtstermine + EPS-Überraschung — anbieterunabhängig einlesen
+    let events=[]; // [{date, surprise}]
+    if(cfg.provider==='twelvedata'){
+      const url=`https://api.twelvedata.com/earnings?symbol=${sym}&outputsize=48&apikey=${key}`;
+      const j=await (await fetch(url)).json();
+      if(j.status==='error') throw new Error('Twelve Data: '+j.message);
+      if(!j.earnings) throw new Error('Keine Earnings-Daten erhalten.');
+      events=j.earnings.map(e=>({date:e.date, surprise:(e.surprise_prc!=null?+e.surprise_prc:null)}));
+    } else {
+      const url=`https://www.alphavantage.co/query?function=EARNINGS&symbol=${sym}&apikey=${key}`;
+      const j=await (await fetch(url)).json();
+      if(j['Note']||j['Information']) throw new Error('Limit/Key-Problem: '+(j['Note']||j['Information']));
+      const q=j.quarterlyEarnings; if(!q) throw new Error('Keine Earnings-Daten erhalten.');
+      events=q.slice(0,48).map(e=>({date:e.reportedDate, surprise:(e.surprisePercentage!=null?+e.surprisePercentage:null)}));
+    }
+    // Kursreaktion am 1. Handelstag NACH dem Bericht (Tesla berichtet nach Börsenschluss)
     const idx={}; DATA.dates.forEach((d,i)=>idx[d]=i);
-    const reactions=[];
-    q.slice(0,24).forEach(e=>{ const d=e.reportedDate; let i=idx[d];
-      // falls Berichtstag kein Handelstag: nächsten Handelstag suchen
-      if(i==null){ for(let k=0;k<4;k++){ const dd=addDays(d,k); if(idx[dd]!=null){i=idx[dd];break;} } }
-      if(i==null||i<1) return;
-      const react=DATA.c[i]/DATA.c[i-1]-1;
-      reactions.push({date:d, react, surprise: e.surprisePercentage!=null?+e.surprisePercentage:null});
+    const n=DATA.c.length; const reactions=[];
+    events.forEach(ev=>{ if(!ev.date) return; let i=idx[ev.date];
+      if(i==null){ for(let k=0;k<4;k++){ const dd=addDays(ev.date,k); if(idx[dd]!=null){i=idx[dd];break;} } }
+      if(i==null || i+1>=n) return; // Zukunftstermine/Randfälle überspringen
+      reactions.push({date:ev.date, react:DATA.c[i+1]/DATA.c[i]-1, surprise:ev.surprise});
     });
+    reactions.sort((a,b)=> new Date(b.date)-new Date(a.date)); // neueste zuerst
+    if(!reactions.length) throw new Error('Keine passenden Berichtstermine in der Kurshistorie gefunden.');
     renderEarnings(reactions);
-    banner('Earnings geladen ('+reactions.length+' Quartale).','ok',2500);
+    banner('Earnings geladen ('+reactions.length+' Quartale · '+(cfg.provider==='twelvedata'?'Twelve Data':'Alpha Vantage')+').','ok',2800);
   }catch(e){ banner(e.message,'err'); }
   finally{ $('#loadEarnings').textContent='Earnings-Daten neu laden'; }
 }
@@ -616,8 +627,9 @@ function renderEarnings(rs){
     <div class="stat"><div class="k">Grün nach Zahlen</div><div class="v">${ups}/${rs.length}</div></div>
     <div class="stat"><div class="k">Aufwärts-Quote</div><div class="v ${ups/rs.length>=0.5?'pos':'neg'}">${fmtPct(ups/(rs.length||1),0)}</div></div>`;
   const t=$('#earningsTable');
-  t.innerHTML='<div class="r head"><span>Berichtstag</span><span>Kursreaktion (Folgetag)</span></div>';
-  rs.forEach(r=>{ t.innerHTML+=`<div class="r"><span>${fmtDate(r.date)}</span>
+  t.innerHTML='<div class="r head"><span>Berichtstag · EPS-Überraschung</span><span>Reaktion (1. Handelstag danach)</span></div>';
+  rs.forEach(r=>{ const sp = r.surprise!=null? ` · <span class="muted" style="font-size:10px">EPS ${r.surprise>=0?'+':''}${fmtNum(r.surprise,0)}%</span>`:'';
+    t.innerHTML+=`<div class="r"><span>${fmtDate(r.date)}${sp}</span>
     <span class="val ${r.react>=0?'pos':'neg'}">${fmtPct(r.react,1)}</span></div>`; });
 }
 
