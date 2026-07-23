@@ -2,7 +2,7 @@
 /* ============================================================
    TSLA Signal — technisches Analyse-Dashboard (keine Anlageberatung)
    ============================================================ */
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.3.0';
 
 /* ---------- Storage ---------- */
 const LS = {
@@ -11,8 +11,17 @@ const LS = {
   del(k){ try{ localStorage.removeItem(k); }catch(e){} }
 };
 const CFG_KEY='tsla_cfg';
-const cfg = Object.assign({ provider:'twelvedata', apiKey:'', symbol:'TSLA', earningsKey:'' }, LS.get(CFG_KEY,{}));
+const cfg = Object.assign({ provider:'twelvedata', apiKey:'', earningsKey:'', asset:'TSLA', usdEur:0.92 }, LS.get(CFG_KEY,{}));
 let historyNote=''; // Warnhinweis bei eingeschränkter Historie (z. B. Alpha Vantage Gratis)
+
+/* ---------- Assets & Währung ---------- */
+const ASSETS={
+  TSLA:{ symbol:'TSLA',    ticker:'TSLA', name:'TESLA',   logo:'T', logoBg:'var(--tesla)', ccy:'EUR', crypto:false },
+  BTC: { symbol:'BTC/USD', ticker:'BTC',  name:'BITCOIN', logo:'₿', logoBg:'#f7931a',      ccy:'USD', crypto:true  }
+};
+let CUR={code:'USD', sym:'$', suffix:false, factor:1}; // aktive Anzeigewährung
+let YEARBARS=252;                                       // Handelstage/Jahr (Krypto: 365)
+const asset = ()=> ASSETS[cfg.asset]||ASSETS.TSLA;
 
 /* ---------- State ---------- */
 let DATA = null;      // {dates:[], o:[], h:[], l:[], c:[], v:[]}
@@ -21,7 +30,12 @@ let chartRange = 0;   // 0 = max
 
 /* ---------- Utilities ---------- */
 const $ = s => document.querySelector(s);
-const fmtUSD = n => (n==null||isNaN(n))?'—':'$'+Number(n).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+// währungsbewusste Geldformatierung (rechnet nativen USD-Wert in Anzeigewährung um)
+const fmtUSD = n => { if(n==null||isNaN(n)) return '—';
+  const x=Number(n)*CUR.factor, s=x.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return CUR.suffix ? s+' '+CUR.sym : CUR.sym+s; };
+const axisMoney = v => { const x=v*CUR.factor, s=x.toLocaleString('de-DE',{maximumFractionDigits:0});
+  return CUR.suffix ? s+CUR.sym : CUR.sym+s; };
 const fmtPct = (n,dp=1) => (n==null||isNaN(n))?'—':(n>=0?'+':'')+ (n*100).toFixed(dp)+'%';
 const fmtNum = (n,dp=1) => (n==null||isNaN(n))?'—':Number(n).toFixed(dp);
 const fmtDate = d => { const t=new Date(d); return isNaN(t)? d : t.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}); };
@@ -86,7 +100,7 @@ function drawdownFromATH(c){ const dd=Array(c.length).fill(null); let peak=-Infi
 function annualVol(c,n=20){ const out=Array(c.length).fill(null);
   const r=c.map((v,i)=> i? Math.log(v/c[i-1]) : null);
   for(let i=n;i<c.length;i++){ let m=0; for(let j=i-n+1;j<=i;j++) m+=r[j]; m/=n;
-    let v=0; for(let j=i-n+1;j<=i;j++){ const d=r[j]-m; v+=d*d; } out[i]=Math.sqrt(v/n)*Math.sqrt(252);
+    let v=0; for(let j=i-n+1;j<=i;j++){ const d=r[j]-m; v+=d*d; } out[i]=Math.sqrt(v/n)*Math.sqrt(YEARBARS);
   } return out; }
 
 /* ============================================================
@@ -126,7 +140,7 @@ function conditionalPatterns(horizon=20){
   const c=DATA.c, n=c.length;
   const rsiA=IND.rsi, s50=IND.sma50, s200=IND.sma200, pb=IND.boll.pctB, dd=IND.dd;
   // gleitende 52W-Extrema (O(n))
-  const hi=Array(n).fill(null), lo=Array(n).fill(null); const W=252;
+  const hi=Array(n).fill(null), lo=Array(n).fill(null); const W=YEARBARS;
   for(let i=0;i<n;i++){ if(i>=W){ let mx=-Infinity,mn=Infinity;
     for(let k=i-W;k<=i;k++){ if(c[k]>mx)mx=c[k]; if(c[k]<mn)mn=c[k]; } hi[i]=mx; lo[i]=mn; } }
   const defs=[
@@ -306,7 +320,7 @@ function backtest(){
    ============================================================ */
 async function fetchDaily(){
   historyNote='';
-  const sym=cfg.symbol.trim().toUpperCase(), key=cfg.apiKey.trim();
+  const sym=asset().symbol, key=cfg.apiKey.trim();
   if(!key) throw new Error('Kein API-Schlüssel gesetzt. Öffne „Setup".');
   if(cfg.provider==='alphavantage'){
     const callAV=async os=>(await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${sym}&outputsize=${os}&apikey=${key}`)).json();
@@ -335,14 +349,47 @@ function toSeries(rows){
   return { dates:rows.map(r=>r.d), o:rows.map(r=>r.o), h:rows.map(r=>r.h),
            l:rows.map(r=>r.l), c:rows.map(r=>r.c), v:rows.map(r=>r.v) };
 }
-const cacheKey = ()=> `tsla_data_${cfg.provider}_${cfg.symbol.toUpperCase()}`;
+const cacheKey = ()=> `tsla_data_${cfg.provider}_${asset().symbol}`;
 
+/* aktuellen USD→EUR-Kurs bestmöglich holen (best effort) */
+async function fetchUsdEur(key){
+  try{ const j=await (await fetch(`https://api.twelvedata.com/exchange_rate?symbol=USD/EUR&apikey=${key}`)).json();
+    if(j&&j.rate) return +j.rate; }catch(e){}
+  try{ const j=await (await fetch(`https://api.twelvedata.com/time_series?symbol=EUR/USD&interval=1day&outputsize=1&apikey=${key}`)).json();
+    if(j&&j.values&&j.values[0]) return 1/(+j.values[0].close); }catch(e){}
+  return null;
+}
+
+/* Anzeige (Währung, Header, Reiter) an das aktive Asset anpassen */
+function applyAsset(){
+  const a=asset();
+  YEARBARS = a.crypto?365:252;
+  CUR = a.ccy==='EUR'
+    ? {code:'EUR', sym:'€', suffix:true,  factor:(+cfg.usdEur||0.92)}
+    : {code:'USD', sym:'$', suffix:false, factor:1};
+  const lg=document.querySelector('.logo'); if(lg){ lg.textContent=a.logo; lg.style.background=a.logoBg; }
+  $('#symTitle').textContent=a.name+' · '+a.ticker;
+  $('#symSub').textContent='Analyse-Dashboard · '+CUR.code+' · v'+APP_VERSION;
+  document.querySelectorAll('.asset').forEach(b=> b.classList.toggle('on', b.dataset.asset===cfg.asset));
+  // Earnings nur für Aktien
+  const en=$('#earningsNote'), lb=$('#loadEarnings');
+  if(a.crypto){ if(lb) lb.style.display='none'; if(en) en.textContent='Bitcoin hat keine Quartalszahlen — dieser Reiter gilt nur für Aktien.';
+    $('#earningsSummary').classList.add('hidden'); $('#earningsTable').innerHTML=''; }
+  else { if(lb) lb.style.display=''; if(en) en.textContent='Wie hat sich der Kurs rund um die Earnings bewegt? Braucht einen Alpha-Vantage-Key (gratis, Feld in Setup).'; }
+}
+
+async function updateFx(){
+  if(asset().ccy!=='EUR') return;
+  const r=await fetchUsdEur(cfg.apiKey.trim());
+  if(r && r>0.5 && r<1.5){ cfg.usdEur=+r.toFixed(4); LS.set(CFG_KEY,cfg); if($('#usdEur')) $('#usdEur').value=cfg.usdEur; }
+}
 async function loadData(force=false){
+  applyAsset();
   const ck=cacheKey();
   if(!force){
     const cached=LS.get(ck,null);
     if(cached && cached.savedAt && (Date.now()-cached.savedAt < 12*3600*1000)){
-      DATA=cached.data; computeAll(); renderAll();
+      DATA=cached.data; await updateFx(); applyAsset(); computeAll(); renderAll();
       banner('Daten aus Cache geladen ('+fmtDate(last(DATA.dates))+').','ok',2500);
       return;
     }
@@ -352,6 +399,7 @@ async function loadData(force=false){
     banner('Lade Kursdaten…','info');
     DATA=await fetchDaily();
     LS.set(ck,{savedAt:Date.now(),data:DATA});
+    await updateFx(); applyAsset();
     computeAll(); renderAll();
     if(historyNote) banner(historyNote,'err');
     else banner('Aktualisiert · Stand '+fmtDate(last(DATA.dates))+' · '+DATA.c.length+' Handelstage','ok',3500);
@@ -444,7 +492,7 @@ function renderOverview(){
 
   // metrics
   const m=$('#metrics'); m.innerHTML='';
-  const hi52=Math.max(...DATA.c.slice(-252)), lo52=Math.min(...DATA.c.slice(-252));
+  const hi52=Math.max(...DATA.c.slice(-YEARBARS)), lo52=Math.min(...DATA.c.slice(-YEARBARS));
   const cards=[
     ['RSI (14)', fmtNum(IND.rsi[i],1)],
     ['52W-Hoch', fmtUSD(hi52)],
@@ -523,7 +571,7 @@ function drawFibLevel(c, level, min, max){
   ctx.strokeStyle=col; ctx.lineWidth=1; ctx.setLineDash([3,3]);
   ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+iw,y); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle=col; ctx.font='9px -apple-system,sans-serif'; ctx.textAlign='right';
-  ctx.fillText(level.label+'  $'+level.price.toFixed(0), pad.l+iw-3, y-2.5); ctx.textAlign='left';
+  ctx.fillText(level.label+'  '+axisMoney(level.price), pad.l+iw-3, y-2.5); ctx.textAlign='left';
 }
 
 function renderFibCard(fib){
@@ -553,7 +601,7 @@ function renderCharts(){
   // y-Bereich so erweitern, dass die nächsten Fib-Ziele sichtbar sind
   const targets=[fib.above&&fib.above.price, fib.below&&fib.below.price].filter(v=>v!=null);
   const [pmin,pmax]=minMax(seg(DATA.c),seg(IND.boll.up),seg(IND.boll.lo),targets);
-  drawGrid(cP,pmin,pmax,v=>'$'+v.toFixed(0));
+  drawGrid(cP,pmin,pmax,axisMoney);
   plotBand(cP,IND.boll.up,IND.boll.lo,start,pmin,pmax,'rgba(59,130,246,.10)');
   plotLine(cP,IND.boll.up,start,pmin,pmax,'rgba(59,130,246,.35)',1);
   plotLine(cP,IND.boll.lo,start,pmin,pmax,'rgba(59,130,246,.35)',1);
@@ -648,7 +696,8 @@ function renderBacktest(){
    Earnings (lazy)
    ============================================================ */
 async function loadEarnings(){
-  const sym=cfg.symbol.trim().toUpperCase();
+  if(asset().crypto){ banner('Bitcoin hat keine Quartalszahlen.','info',3000); return; }
+  const sym=asset().ticker;
   if(!DATA){ banner('Erst Kursdaten laden (Setup → Speichern & Laden).','err'); return; }
   // Alpha Vantage bevorzugen: EARNINGS ist gratis und liefert reportTime (pre/post-market).
   const avKey=(cfg.earningsKey||'').trim() || (cfg.provider==='alphavantage'? cfg.apiKey.trim() : '');
@@ -729,13 +778,20 @@ $('#refreshBtn').addEventListener('click', ()=> loadData(true));
 $('#loadEarnings').addEventListener('click', loadEarnings);
 
 $('#saveSettings').addEventListener('click', ()=>{
-  cfg.provider=$('#provider').value; cfg.apiKey=$('#apiKey').value.trim(); cfg.symbol=($('#symbol').value.trim()||'TSLA').toUpperCase();
+  cfg.provider=$('#provider').value; cfg.apiKey=$('#apiKey').value.trim();
   cfg.earningsKey=$('#earningsKey').value.trim();
+  const eur=parseFloat(($('#usdEur').value||'').replace(',','.')); if(eur>0.5&&eur<1.5) cfg.usdEur=eur;
   LS.set(CFG_KEY,cfg);
-  $('#symTitle').textContent=(cfg.symbol==='TSLA'?'TESLA · ':'')+cfg.symbol;
+  applyAsset();
   $('#settingsMsg').textContent='Gespeichert. Lade Daten…';
   loadData(true).then(()=>{ $('#settingsMsg').textContent='Fertig.'; switchView('overview'); });
 });
+// Asset-Umschalter (TSLA € / BTC $)
+document.querySelectorAll('.asset').forEach(b=> b.addEventListener('click', ()=>{
+  if(cfg.asset===b.dataset.asset) return;
+  cfg.asset=b.dataset.asset; LS.set(CFG_KEY,cfg); applyAsset();
+  if(cfg.apiKey) loadData(false); else switchView('settings');
+}));
 $('#clearCache').addEventListener('click', ()=>{
   LS.del(cacheKey()); $('#settingsMsg').textContent='Cache geleert.';
 });
@@ -744,9 +800,9 @@ let rt; window.addEventListener('resize', ()=>{ clearTimeout(rt); rt=setTimeout(
 
 /* ---------- init ---------- */
 (function init(){
-  $('#provider').value=cfg.provider; $('#apiKey').value=cfg.apiKey; $('#symbol').value=cfg.symbol; $('#earningsKey').value=cfg.earningsKey||'';
-  $('#symTitle').textContent=(cfg.symbol==='TSLA'?'TESLA · ':'')+cfg.symbol;
-  $('#symSub').textContent='Analyse-Dashboard · v'+APP_VERSION;
+  $('#provider').value=cfg.provider; $('#apiKey').value=cfg.apiKey; $('#earningsKey').value=cfg.earningsKey||'';
+  if($('#usdEur')) $('#usdEur').value=cfg.usdEur;
+  applyAsset();
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
   if(cfg.apiKey){ loadData(false); }
   else { banner('Willkommen! Öffne „Setup" (⚙︎), füge deinen kostenlosen API-Key ein und tippe „Speichern & Laden".','info'); switchView('settings'); }

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.0] — 2026-07-23
+### Neu
+- **Bitcoin (BTC/USD)** als zweites Asset — Umschalter oben: **TESLA · € | BITCOIN · $**.
+  Alle Analysen (Signal, Muster, Fibonacci, Charts, Saison, Backtest) gelten für beide.
+- **Währungsanzeige**: TSLA in **Euro** (Umrechnung zum aktuellen USD→EUR-Kurs, automatisch
+  geholt, in Setup editierbar), Bitcoin in **US-Dollar**. Umrechnung ist maßstabstreu —
+  Indikatoren und Fib-Formen bleiben identisch.
+- Krypto-Anpassungen: 52-Wochen-Fenster und Volatilitäts-Annualisierung nutzen 365 statt 252 Tage.
+- Earnings-Reiter ist bei Bitcoin ausgeblendet (keine Quartalszahlen).
+
 ## [1.2.1] — 2026-07-23
 ### Behoben
 - **Earnings mit Twelve Data Gratis geht nicht** — deren `/earnings` ist Bezahlplan

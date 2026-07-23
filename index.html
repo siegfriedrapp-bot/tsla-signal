@@ -26,6 +26,11 @@
     <button id="refreshBtn" class="icon-btn" title="Aktualisieren" aria-label="Aktualisieren">⟳</button>
   </header>
 
+  <div class="assetbar">
+    <button class="asset on" data-asset="TSLA">TESLA <small>· €</small></button>
+    <button class="asset" data-asset="BTC">BITCOIN <small>· $</small></button>
+  </div>
+
   <div id="banner" class="banner hidden"></div>
 
   <main id="views">
@@ -130,7 +135,7 @@
     <section class="view" id="view-earnings">
       <div class="card">
         <div class="card-head">Kursreaktion auf Quartalszahlen</div>
-        <p class="muted small">Wie hat sich TSLA rund um die Earnings bewegt? Braucht einen Alpha-Vantage-Key (gratis, Feld in Setup) — Twelve Data liefert Earnings nur mit Bezahlplan.</p>
+        <p class="muted small" id="earningsNote">Wie hat sich der Kurs rund um die Earnings bewegt? Braucht einen Alpha-Vantage-Key (gratis, Feld in Setup).</p>
         <button id="loadEarnings" class="btn">Earnings-Daten laden</button>
         <div id="earningsSummary" class="stat-row hidden"></div>
         <div id="earningsTable" class="mini-table"></div>
@@ -165,8 +170,8 @@
           <input id="apiKey" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Hier deinen kostenlosen Key einfügen" />
         </label>
         <label class="field">
-          <span>Symbol</span>
-          <input id="symbol" type="text" value="TSLA" autocomplete="off" spellcheck="false" />
+          <span>Kurs USD→EUR <span class="muted">(für TSLA-Anzeige in €; wird nach Möglichkeit automatisch geholt, sonst hier anpassen)</span></span>
+          <input id="usdEur" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="z. B. 0,92" />
         </label>
         <label class="field">
           <span>Alpha-Vantage-Key <span class="muted">(optional — nur für Earnings, wenn Kursdaten von Twelve Data kommen)</span></span>

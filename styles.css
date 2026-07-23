@@ -28,6 +28,15 @@ body{overscroll-behavior-y:none}
 .icon-btn.spin{animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* Asset-Umschalter */
+.assetbar{display:flex;gap:8px;padding:10px 16px 0;max-width:640px;margin:0 auto}
+.asset{flex:1;background:var(--card2);border:1px solid var(--line);color:var(--muted);
+  border-radius:12px;padding:11px;font-size:14px;font-weight:700;letter-spacing:.3px}
+.asset small{font-weight:600;color:var(--muted2)}
+.asset:active{transform:scale(.98)}
+.asset.on{background:var(--card);border-color:var(--accent);color:var(--text)}
+.asset.on small{color:var(--accent)}
+
 /* Banner */
 .banner{margin:10px 16px 0;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.4}
 .banner.err{background:rgba(234,57,67,.14);border:1px solid rgba(234,57,67,.4);color:#ff9aa2}
