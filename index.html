@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#0b0d10" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="TSLA Signal" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<link rel="icon" href="icon.svg" />
+<link rel="stylesheet" href="styles.css" />
+<title>TSLA Signal — Aktien-Analyse</title>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">T</span>
+      <div>
+        <div class="title" id="symTitle">TESLA · TSLA</div>
+        <div class="sub" id="symSub">Analyse-Dashboard</div>
+      </div>
+    </div>
+    <button id="refreshBtn" class="icon-btn" title="Aktualisieren" aria-label="Aktualisieren">⟳</button>
+  </header>
+
+  <div id="banner" class="banner hidden"></div>
+
+  <main id="views">
+    <!-- ÜBERSICHT -->
+    <section class="view active" id="view-overview">
+      <div class="price-hero">
+        <div class="price-main">
+          <span id="lastPrice">—</span>
+          <span id="lastChange" class="chg">—</span>
+        </div>
+        <div id="lastDate" class="muted small">Noch keine Daten geladen</div>
+      </div>
+
+      <div class="gauge-card card">
+        <div class="gauge-label">Gesamt-Signal (heuristisch)</div>
+        <div id="gaugeWrap" class="gauge-wrap">
+          <canvas id="gauge" width="320" height="180"></canvas>
+          <div class="gauge-verdict">
+            <div id="verdictText" class="verdict">—</div>
+            <div id="verdictScore" class="verdict-score">Score —</div>
+          </div>
+        </div>
+        <p class="disclaimer">Keine Anlageberatung. Technische Heuristik auf Basis historischer Kurse — kein verlässlicher Vorhersagewert für Tops/Bottoms.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Signal-Bestandteile</div>
+        <div id="breakdown" class="breakdown"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Kennzahlen</div>
+        <div id="metrics" class="metric-grid"></div>
+      </div>
+    </section>
+
+    <!-- MUSTER -->
+    <section class="view" id="view-patterns">
+      <div class="card">
+        <div class="card-head">Ähnlichste Situationen der Vergangenheit</div>
+        <p class="muted small">Die App vergleicht die aktuelle Kursform (letzte 20 Tage) mit der <b>gesamten Historie</b> und mittelt, was in den <span id="anaHorizon">20</span> Tagen danach passierte.</p>
+        <div id="analogSummary" class="stat-row"></div>
+        <canvas id="chartAnalog" class="chart" height="180"></canvas>
+        <div class="legend" id="legendAnalog"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">Top-Analogien (Datum → Bewegung danach)</div>
+        <div id="analogTable" class="mini-table"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">Wiederkehrende Muster — was folgte historisch?</div>
+        <p class="muted small">Durchschnittliche Bewegung 20 Handelstage nach jedem Auslöser über die gesamte Historie. <span class="live-badge">jetzt aktiv</span> = Auslöser trifft heute zu.</p>
+        <div id="condTable" class="mini-table"></div>
+      </div>
+    </section>
+
+    <!-- CHARTS -->
+    <section class="view" id="view-charts">
+      <div class="card">
+        <div class="card-head">
+          Kurs · SMA 50/200 · Bollinger
+          <span id="rangeSel" class="range-sel">
+            <button data-range="120">6M</button>
+            <button data-range="252">1J</button>
+            <button data-range="756">3J</button>
+            <button data-range="0" class="on">Max</button>
+          </span>
+        </div>
+        <canvas id="chartPrice" class="chart" height="260"></canvas>
+        <div class="legend" id="legendPrice"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">RSI (14)</div>
+        <canvas id="chartRsi" class="chart" height="140"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-head">MACD (12/26/9)</div>
+        <canvas id="chartMacd" class="chart" height="140"></canvas>
+      </div>
+    </section>
+
+    <!-- SAISON -->
+    <section class="view" id="view-season">
+      <div class="card">
+        <div class="card-head">Durchschnittliche Monatsrendite (gesamte Historie)</div>
+        <canvas id="chartSeason" class="chart" height="220"></canvas>
+        <div id="seasonNote" class="muted small"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">Beste / schlechteste Monate</div>
+        <div id="seasonTable" class="mini-table"></div>
+      </div>
+    </section>
+
+    <!-- EARNINGS -->
+    <section class="view" id="view-earnings">
+      <div class="card">
+        <div class="card-head">Kursreaktion auf Quartalszahlen</div>
+        <p class="muted small">Wie hat sich TSLA am Handelstag nach den Earnings bewegt? (Close-to-Close)</p>
+        <button id="loadEarnings" class="btn">Earnings-Daten laden</button>
+        <div id="earningsSummary" class="stat-row hidden"></div>
+        <div id="earningsTable" class="mini-table"></div>
+      </div>
+    </section>
+
+    <!-- BACKTEST -->
+    <section class="view" id="view-backtest">
+      <div class="card">
+        <div class="card-head">Backtest: Signal-Strategie vs. Buy & Hold</div>
+        <p class="muted small">Long, wenn Score &gt; +10; Cash, wenn Score &lt; −10 (Hysterese). Ohne Gebühren/Steuern/Slippage.</p>
+        <canvas id="chartEquity" class="chart" height="220"></canvas>
+        <div class="legend" id="legendEquity"></div>
+        <div id="backtestStats" class="stat-row"></div>
+        <p class="disclaimer">Backtests sind rückblickend optimistisch. Vergangene Performance sagt nichts über die Zukunft.</p>
+      </div>
+    </section>
+
+    <!-- EINSTELLUNGEN -->
+    <section class="view" id="view-settings">
+      <div class="card">
+        <div class="card-head">Datenquelle</div>
+        <label class="field">
+          <span>Anbieter</span>
+          <select id="provider">
+            <option value="alphavantage">Alpha Vantage (empfohlen, volle Historie)</option>
+            <option value="twelvedata">Twelve Data</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>API-Schlüssel</span>
+          <input id="apiKey" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Hier deinen kostenlosen Key einfügen" />
+        </label>
+        <label class="field">
+          <span>Symbol</span>
+          <input id="symbol" type="text" value="TSLA" autocomplete="off" spellcheck="false" />
+        </label>
+        <div class="btn-row">
+          <button id="saveSettings" class="btn primary">Speichern & Laden</button>
+          <button id="clearCache" class="btn ghost">Cache leeren</button>
+        </div>
+        <div id="settingsMsg" class="muted small"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Kostenlosen API-Key holen</div>
+        <ol class="howto">
+          <li><b>Alpha Vantage:</b> Öffne <span class="mono">alphavantage.co/support/#api-key</span>, gib eine E-Mail ein → Key wird sofort angezeigt. Gratis, 25 Abfragen/Tag (reicht, da die App zwischenspeichert).</li>
+          <li><b>Twelve Data:</b> Registriere dich auf <span class="mono">twelvedata.com</span> → Dashboard → API-Key. Gratis, 800 Abfragen/Tag.</li>
+          <li>Key oben einfügen, <b>Speichern & Laden</b> tippen.</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Als App aufs iPhone</div>
+        <ol class="howto">
+          <li>Diese Seite in <b>Safari</b> öffnen.</li>
+          <li>Teilen-Symbol <span class="mono">□↑</span> → <b>Zum Home-Bildschirm</b>.</li>
+          <li>Öffnet dann im Vollbild wie eine echte App.</li>
+        </ol>
+      </div>
+
+      <div class="card danger-note">
+        <div class="card-head">Wichtiger Hinweis</div>
+        <p class="small">Dies ist ein <b>Lern- und Analysewerkzeug</b>, <b>keine Anlageberatung</b>. Kein Indikator kann Höchst- oder Tiefstpunkte zuverlässig vorhersagen. Triff keine Kauf-/Verkaufsentscheidung allein auf Basis dieser App. SpaceX ist nicht börsennotiert und kann hier nicht analysiert werden.</p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-view="overview"><span>◎</span>Signal</button>
+    <button class="tab" data-view="patterns"><span>🔁</span>Muster</button>
+    <button class="tab" data-view="charts"><span>📈</span>Charts</button>
+    <button class="tab" data-view="season"><span>🗓</span>Saison</button>
+    <button class="tab" data-view="earnings"><span>💹</span>Earnings</button>
+    <button class="tab" data-view="backtest"><span>⏮</span>Backtest</button>
+    <button class="tab" data-view="settings"><span>⚙︎</span>Setup</button>
+  </nav>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
