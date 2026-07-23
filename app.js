@@ -2,7 +2,7 @@
 /* ============================================================
    TSLA Signal — technisches Analyse-Dashboard (keine Anlageberatung)
    ============================================================ */
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.2.0';
 
 /* ---------- Storage ---------- */
 const LS = {
@@ -148,6 +148,36 @@ function conditionalPatterns(horizon=20){
     return { name:def.name, count:cnt, avg:cnt?sum/cnt:0, hit:cnt?up/cnt:0,
              active:def.test(n-1) };
   }).filter(r=>r.count>=5);
+}
+
+/* ============================================================
+   Fibonacci-Zonen — Retracements + Extensions aus dem Swing
+   ============================================================ */
+function fibAnalysis(lookback=0){
+  const c=DATA.c, n=c.length;
+  const start=(lookback && lookback<n) ? n-lookback : 0;
+  let hi=-Infinity, lo=Infinity, hiI=start, loI=start;
+  for(let i=start;i<n;i++){ if(c[i]>=hi){hi=c[i];hiI=i;} if(c[i]<=lo){lo=c[i];loI=i;} }
+  const price=c[n-1], range=(hi-lo)||1, up=hiI>loI;
+  const levels=[];
+  levels.push({label:'Hoch 0%', price:hi, kind:'swing'});
+  [0.236,0.382,0.5,0.618,0.786].forEach(r=>
+    levels.push({label:(r*100).toFixed(1).replace(',0','').replace('.0','')+'%', price:hi-range*r, kind:'retr'}));
+  levels.push({label:'Tief 100%', price:lo, kind:'swing'});
+  // Extensions = Trendfortsetzungs-Ziele über/unter dem Swing
+  if(up){
+    levels.push({label:'127,2%', price:hi+range*0.272, kind:'ext'});
+    levels.push({label:'161,8%', price:hi+range*0.618, kind:'ext'});
+  } else {
+    levels.push({label:'127,2%', price:lo-range*0.272, kind:'ext'});
+    levels.push({label:'161,8%', price:lo-range*0.618, kind:'ext'});
+  }
+  levels.sort((a,b)=>b.price-a.price);
+  const above=levels.filter(l=>l.price>price).sort((a,b)=>a.price-b.price)[0];
+  const below=levels.filter(l=>l.price<price).sort((a,b)=>b.price-a.price)[0];
+  if(above) above.hl='up'; if(below) below.hl='down';
+  return {hi,lo,hiI,loI,price,up,range,levels,above,below,
+          hiDate:DATA.dates[hiI], loDate:DATA.dates[loI]};
 }
 
 /* ============================================================
@@ -483,24 +513,61 @@ function plotBand(c,up,lo,start,min,max,color){ const {ctx,pad,iw,ih}=c; const n
 function minMax(...arrs){ let mn=Infinity,mx=-Infinity; arrs.forEach(a=>a.forEach(v=>{ if(v!=null){mn=Math.min(mn,v);mx=Math.max(mx,v);} }));
   const pad=(mx-mn)*0.06||1; return [mn-pad,mx+pad]; }
 
+function drawFibLevel(c, level, min, max){
+  if(level.price<min || level.price>max) return; // außerhalb des sichtbaren Bereichs
+  const {ctx,pad,iw,ih}=c;
+  const y=pad.t+ih*(1-(level.price-min)/(max-min||1));
+  const col = level.hl==='up'?'rgba(22,199,132,.75)'
+            : level.hl==='down'?'rgba(234,57,67,.75)'
+            : level.kind==='ext'?'rgba(155,107,255,.5)':'rgba(224,165,58,.4)';
+  ctx.strokeStyle=col; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+iw,y); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=col; ctx.font='9px -apple-system,sans-serif'; ctx.textAlign='right';
+  ctx.fillText(level.label+'  $'+level.price.toFixed(0), pad.l+iw-3, y-2.5); ctx.textAlign='left';
+}
+
+function renderFibCard(fib){
+  $('#fibSwing').textContent=`· Swing ${fib.up?'↑ Auf':'↓ Ab'}: ${fmtUSD(fib.lo)} (${fmtDate(fib.loDate)}) ↔ ${fmtUSD(fib.hi)} (${fmtDate(fib.hiDate)})`;
+  const tg=$('#fibTargets');
+  const up=fib.above, dn=fib.below;
+  tg.innerHTML=`<div class="stat"><div class="k">Nächstes Ziel ↑</div>
+      <div class="v pos">${up?fmtUSD(up.price):'—'}<small>${up?' '+up.label+' · '+fmtPct(up.price/fib.price-1,1):''}</small></div></div>
+    <div class="stat"><div class="k">Nächste Unterstützung ↓</div>
+      <div class="v neg">${dn?fmtUSD(dn.price):'—'}<small>${dn?' '+dn.label+' · '+fmtPct(dn.price/fib.price-1,1):''}</small></div></div>`;
+  const t=$('#fibTable');
+  t.innerHTML='<div class="r head"><span>Level</span><span>Preis · Abstand</span></div>';
+  fib.levels.forEach(l=>{ const d=l.price/fib.price-1; const hl=l.hl;
+    const badge = l.kind==='ext'?' <span class="live-badge">Ziel</span>' : hl?' <span class="live-badge">nächstes</span>':'';
+    t.innerHTML+=`<div class="r"${hl?' style="background:var(--card)"':''}>
+      <span>${l.label}${badge}</span>
+      <span class="val ${d>=0?'pos':'neg'}">${fmtUSD(l.price)} · ${fmtPct(d,1)}</span></div>`; });
+}
+
 function renderCharts(){
   if(!DATA) return;
   const {start}=sliceRange();
+  const fib=fibAnalysis(chartRange||0);
   // Price + SMA + Bollinger
   const cP=baseChart($('#chartPrice'));
   const seg=arr=>arr.slice(start);
-  const [pmin,pmax]=minMax(seg(DATA.c),seg(IND.boll.up),seg(IND.boll.lo));
+  // y-Bereich so erweitern, dass die nächsten Fib-Ziele sichtbar sind
+  const targets=[fib.above&&fib.above.price, fib.below&&fib.below.price].filter(v=>v!=null);
+  const [pmin,pmax]=minMax(seg(DATA.c),seg(IND.boll.up),seg(IND.boll.lo),targets);
   drawGrid(cP,pmin,pmax,v=>'$'+v.toFixed(0));
   plotBand(cP,IND.boll.up,IND.boll.lo,start,pmin,pmax,'rgba(59,130,246,.10)');
   plotLine(cP,IND.boll.up,start,pmin,pmax,'rgba(59,130,246,.35)',1);
   plotLine(cP,IND.boll.lo,start,pmin,pmax,'rgba(59,130,246,.35)',1);
+  // Fibonacci-Level als horizontale Linien
+  fib.levels.forEach(l=> drawFibLevel(cP,l,pmin,pmax));
   plotLine(cP,IND.sma200,start,pmin,pmax,'#f0b90b',1.4);
   plotLine(cP,IND.sma50,start,pmin,pmax,'#9b6bff',1.4);
   plotLine(cP,DATA.c,start,pmin,pmax,'#e8edf2',1.8);
   $('#legendPrice').innerHTML=`<span><i style="background:#e8edf2"></i>Kurs</span>
     <span><i style="background:#9b6bff"></i>SMA 50</span>
     <span><i style="background:#f0b90b"></i>SMA 200</span>
-    <span><i style="background:#3b82f6"></i>Bollinger</span>`;
+    <span><i style="background:#3b82f6"></i>Bollinger</span>
+    <span><i style="background:#e0a53a"></i>Fibonacci</span>`;
+  renderFibCard(fib);
 
   // RSI
   const cR=baseChart($('#chartRsi'));

@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.0] — 2026-07-23
+### Neu
+- **Fibonacci-Zonen** im Charts-Reiter:
+  - Automatischer Swing aus Hoch/Tief des gewählten Zeitraums (6M/1J/3J/Max).
+  - Retracements (23,6 / 38,2 / 50 / 61,8 / 78,6 %) + Extensions (127,2 / 161,8 %) als Ziele.
+  - Als gestrichelte Linien direkt im Kurschart eingezeichnet.
+  - Karte mit **nächstem Ziel ↑** und **nächster Unterstützung ↓** relativ zum aktuellen Kurs,
+    plus vollständige Level-Tabelle mit Preis und Abstand.
+
 ## [1.1.2] — 2026-07-23
 ### Behoben
 - **Earnings funktioniert jetzt auch mit Twelve Data** (Endpoint `/earnings`, gratis) — kein

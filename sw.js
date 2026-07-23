@@ -1,5 +1,5 @@
 /* Service Worker: App-Shell offline verfügbar machen (Kursdaten kommen live/aus localStorage) */
-const CACHE='tsla-signal-v1.1.2';
+const CACHE='tsla-signal-v1.2.0';
 const SHELL=['index.html','styles.css','app.js','manifest.webmanifest','icon.svg'];
 
 self.addEventListener('install', e=>{

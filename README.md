@@ -1,8 +1,8 @@
-# 📈 TSLA Signal — v1.1.1
+# 📈 TSLA Signal — v1.2.0
 
 Eine installierbare **iPhone-Web-App (PWA)**, die technische Analyse- und **Muster-Signale** für die **Tesla-Aktie (TSLA)** berechnet — aus der kompletten Kurshistorie.
 
-![version](https://img.shields.io/badge/version-1.1.1-blue)
+![version](https://img.shields.io/badge/version-1.2.0-blue)
 ![type](https://img.shields.io/badge/type-PWA-16c784)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 ![advice](https://img.shields.io/badge/Anlageberatung-nein-ea3943)
@@ -19,6 +19,7 @@ Eine installierbare **iPhone-Web-App (PWA)**, die technische Analyse- und **Must
 | **Signal** | Ampel-Score −100…+100 aus **7 Faktoren**: RSI, Bollinger %B, Trend vs. SMA200, MACD-Momentum, Golden/Death-Cross, Drawdown vom ATH und **wiederkehrende Muster** — mit transparenter Aufschlüsselung jedes Beitrags. |
 | **Muster** 🔁 | **Analog-Matching**: vergleicht die aktuelle Kursform mit der gesamten Historie und mittelt, was danach geschah (Ø-Bewegung + Aufwärts-Wahrscheinlichkeit + Ø-Pfad-Chart). **Bedingte Muster**: was folgte historisch auf RSI<30, Golden Cross, neue 52W-Tiefs, tiefe Drawdowns u. a. — inkl. Trefferquote und „jetzt aktiv"-Markierung. |
 | **Charts** | Kurs + SMA 50/200 + Bollinger-Bänder, RSI, MACD (offline gezeichnet). |
+| **Fibonacci** | Retracements + Extensions aus dem Swing des gewählten Zeitraums — als Linien im Chart, mit nächstem Kursziel ↑ und nächster Unterstützung ↓. |
 | **Saison** | Ø-Rendite je Kalendermonat über die gesamte Historie. |
 | **Earnings** | Kursreaktion am Tag nach jedem Quartalsbericht + Aufwärts-Quote. |
 | **Backtest** | Signal-Strategie vs. Buy & Hold (CAGR, Max-Drawdown, Trefferquote). |
