@@ -130,7 +130,7 @@
     <section class="view" id="view-earnings">
       <div class="card">
         <div class="card-head">Kursreaktion auf Quartalszahlen</div>
-        <p class="muted small">Wie hat sich TSLA am Handelstag nach den Earnings bewegt? (Close-to-Close)</p>
+        <p class="muted small">Wie hat sich TSLA rund um die Earnings bewegt? Braucht einen Alpha-Vantage-Key (gratis, Feld in Setup) — Twelve Data liefert Earnings nur mit Bezahlplan.</p>
         <button id="loadEarnings" class="btn">Earnings-Daten laden</button>
         <div id="earningsSummary" class="stat-row hidden"></div>
         <div id="earningsTable" class="mini-table"></div>
@@ -168,6 +168,10 @@
           <span>Symbol</span>
           <input id="symbol" type="text" value="TSLA" autocomplete="off" spellcheck="false" />
         </label>
+        <label class="field">
+          <span>Alpha-Vantage-Key <span class="muted">(optional — nur für Earnings, wenn Kursdaten von Twelve Data kommen)</span></span>
+          <input id="earningsKey" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="gratis auf alphavantage.co — nur für den Earnings-Reiter" />
+        </label>
         <div class="btn-row">
           <button id="saveSettings" class="btn primary">Speichern & Laden</button>
           <button id="clearCache" class="btn ghost">Cache leeren</button>
@@ -179,7 +183,7 @@
         <div class="card-head">Kostenlosen API-Key holen</div>
         <ol class="howto">
           <li><b>Twelve Data (empfohlen):</b> Registriere dich auf <span class="mono">twelvedata.com</span> → Dashboard → API-Key. Gratis, 800 Abfragen/Tag, <b>volle Kurshistorie</b>.</li>
-          <li><b>Alpha Vantage:</b> <span class="mono">alphavantage.co/support/#api-key</span> → E-Mail → Key. Gratis, aber liefert nur noch ~100 Tage (volle Historie ist Premium) — für dieses Dashboard <b>nicht empfohlen</b>.</li>
+          <li><b>Alpha Vantage:</b> <span class="mono">alphavantage.co/support/#api-key</span> → E-Mail → Key. Für Kursdaten nur ~100 Tage (nicht empfohlen), <b>aber</b>: sein gratis <b>Earnings</b>-Endpoint funktioniert — trage den Key ins Feld „Alpha-Vantage-Key (für Earnings)" ein, dann läuft der Earnings-Reiter zusätzlich zu Twelve Data.</li>
           <li>Key oben einfügen, <b>Speichern & Laden</b> tippen.</li>
         </ol>
       </div>

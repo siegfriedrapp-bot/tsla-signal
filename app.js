@@ -2,7 +2,7 @@
 /* ============================================================
    TSLA Signal — technisches Analyse-Dashboard (keine Anlageberatung)
    ============================================================ */
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 
 /* ---------- Storage ---------- */
 const LS = {
@@ -11,7 +11,7 @@ const LS = {
   del(k){ try{ localStorage.removeItem(k); }catch(e){} }
 };
 const CFG_KEY='tsla_cfg';
-const cfg = Object.assign({ provider:'twelvedata', apiKey:'', symbol:'TSLA' }, LS.get(CFG_KEY,{}));
+const cfg = Object.assign({ provider:'twelvedata', apiKey:'', symbol:'TSLA', earningsKey:'' }, LS.get(CFG_KEY,{}));
 let historyNote=''; // Warnhinweis bei eingeschränkter Historie (z. B. Alpha Vantage Gratis)
 
 /* ---------- State ---------- */
@@ -648,38 +648,47 @@ function renderBacktest(){
    Earnings (lazy)
    ============================================================ */
 async function loadEarnings(){
-  const sym=cfg.symbol.trim().toUpperCase(), key=cfg.apiKey.trim();
-  if(!key){ banner('Kein API-Schlüssel. Öffne „Setup".','err'); return; }
+  const sym=cfg.symbol.trim().toUpperCase();
   if(!DATA){ banner('Erst Kursdaten laden (Setup → Speichern & Laden).','err'); return; }
+  // Alpha Vantage bevorzugen: EARNINGS ist gratis und liefert reportTime (pre/post-market).
+  const avKey=(cfg.earningsKey||'').trim() || (cfg.provider==='alphavantage'? cfg.apiKey.trim() : '');
+  const tdKey=cfg.apiKey.trim();
   try{
     $('#loadEarnings').textContent='Lade…';
-    // Berichtstermine + EPS-Überraschung — anbieterunabhängig einlesen
-    let events=[]; // [{date, surprise}]
-    if(cfg.provider==='twelvedata'){
-      const url=`https://api.twelvedata.com/earnings?symbol=${sym}&outputsize=48&apikey=${key}`;
-      const j=await (await fetch(url)).json();
-      if(j.status==='error') throw new Error('Twelve Data: '+j.message);
+    let events=[], src='';   // [{date, surprise, time}]
+    if(avKey){
+      const j=await (await fetch(`https://www.alphavantage.co/query?function=EARNINGS&symbol=${sym}&apikey=${avKey}`)).json();
+      if(j['Note']||j['Information']) throw new Error('Alpha Vantage: '+(j['Note']||j['Information']));
+      if(!j.quarterlyEarnings) throw new Error('Alpha Vantage lieferte keine Earnings (Key/Symbol prüfen).');
+      events=j.quarterlyEarnings.slice(0,48).map(e=>({date:e.reportedDate, surprise:(e.surprisePercentage!=null?+e.surprisePercentage:null), time:e.reportTime}));
+      src='Alpha Vantage';
+    } else if(cfg.provider==='twelvedata'){
+      const j=await (await fetch(`https://api.twelvedata.com/earnings?symbol=${sym}&outputsize=48&apikey=${tdKey}`)).json();
+      if(j.status==='error'){
+        if(/plan|upgrad|available exclusively/i.test(j.message||''))
+          throw new Error('Twelve Data Gratis enthält keine Earnings. Trage in Setup einen kostenlosen Alpha-Vantage-Key ins Feld „Alpha-Vantage-Key (für Earnings)" ein — dann funktioniert der Reiter.');
+        throw new Error('Twelve Data: '+j.message);
+      }
       if(!j.earnings) throw new Error('Keine Earnings-Daten erhalten.');
-      events=j.earnings.map(e=>({date:e.date, surprise:(e.surprise_prc!=null?+e.surprise_prc:null)}));
-    } else {
-      const url=`https://www.alphavantage.co/query?function=EARNINGS&symbol=${sym}&apikey=${key}`;
-      const j=await (await fetch(url)).json();
-      if(j['Note']||j['Information']) throw new Error('Limit/Key-Problem: '+(j['Note']||j['Information']));
-      const q=j.quarterlyEarnings; if(!q) throw new Error('Keine Earnings-Daten erhalten.');
-      events=q.slice(0,48).map(e=>({date:e.reportedDate, surprise:(e.surprisePercentage!=null?+e.surprisePercentage:null)}));
-    }
-    // Kursreaktion am 1. Handelstag NACH dem Bericht (Tesla berichtet nach Börsenschluss)
+      events=j.earnings.map(e=>({date:e.date, surprise:(e.surprise_prc!=null?+e.surprise_prc:null), time:e.time}));
+      src='Twelve Data';
+    } else { throw new Error('Kein API-Schlüssel. Öffne „Setup".'); }
+
     const idx={}; DATA.dates.forEach((d,i)=>idx[d]=i);
     const n=DATA.c.length; const reactions=[];
     events.forEach(ev=>{ if(!ev.date) return; let i=idx[ev.date];
       if(i==null){ for(let k=0;k<4;k++){ const dd=addDays(ev.date,k); if(idx[dd]!=null){i=idx[dd];break;} } }
-      if(i==null || i+1>=n) return; // Zukunftstermine/Randfälle überspringen
-      reactions.push({date:ev.date, react:DATA.c[i+1]/DATA.c[i]-1, surprise:ev.surprise});
+      if(i==null) return;
+      const preMarket = ev.time && /pre/i.test(ev.time);
+      let react;
+      if(preMarket){ if(i<1) return; react=DATA.c[i]/DATA.c[i-1]-1; }      // vor Handelsstart → selber Tag
+      else { if(i+1>=n) return; react=DATA.c[i+1]/DATA.c[i]-1; }           // nach Schluss/unbekannt → Folgetag
+      reactions.push({date:ev.date, react, surprise:ev.surprise});
     });
-    reactions.sort((a,b)=> new Date(b.date)-new Date(a.date)); // neueste zuerst
+    reactions.sort((a,b)=> new Date(b.date)-new Date(a.date));
     if(!reactions.length) throw new Error('Keine passenden Berichtstermine in der Kurshistorie gefunden.');
     renderEarnings(reactions);
-    banner('Earnings geladen ('+reactions.length+' Quartale · '+(cfg.provider==='twelvedata'?'Twelve Data':'Alpha Vantage')+').','ok',2800);
+    banner('Earnings geladen ('+reactions.length+' Quartale · '+src+').','ok',2800);
   }catch(e){ banner(e.message,'err'); }
   finally{ $('#loadEarnings').textContent='Earnings-Daten neu laden'; }
 }
@@ -721,6 +730,7 @@ $('#loadEarnings').addEventListener('click', loadEarnings);
 
 $('#saveSettings').addEventListener('click', ()=>{
   cfg.provider=$('#provider').value; cfg.apiKey=$('#apiKey').value.trim(); cfg.symbol=($('#symbol').value.trim()||'TSLA').toUpperCase();
+  cfg.earningsKey=$('#earningsKey').value.trim();
   LS.set(CFG_KEY,cfg);
   $('#symTitle').textContent=(cfg.symbol==='TSLA'?'TESLA · ':'')+cfg.symbol;
   $('#settingsMsg').textContent='Gespeichert. Lade Daten…';
@@ -734,7 +744,7 @@ let rt; window.addEventListener('resize', ()=>{ clearTimeout(rt); rt=setTimeout(
 
 /* ---------- init ---------- */
 (function init(){
-  $('#provider').value=cfg.provider; $('#apiKey').value=cfg.apiKey; $('#symbol').value=cfg.symbol;
+  $('#provider').value=cfg.provider; $('#apiKey').value=cfg.apiKey; $('#symbol').value=cfg.symbol; $('#earningsKey').value=cfg.earningsKey||'';
   $('#symTitle').textContent=(cfg.symbol==='TSLA'?'TESLA · ':'')+cfg.symbol;
   $('#symSub').textContent='Analyse-Dashboard · v'+APP_VERSION;
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }

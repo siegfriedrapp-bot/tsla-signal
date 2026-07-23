@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.1] — 2026-07-23
+### Behoben
+- **Earnings mit Twelve Data Gratis geht nicht** — deren `/earnings` ist Bezahlplan
+  (der Demo-Key zeigte fälschlich Premium-Daten). Lösung: separates, optionales Feld
+  **„Alpha-Vantage-Key (für Earnings)"** in Setup. Alpha Vantages `EARNINGS`-Endpoint
+  ist gratis; Kursdaten kommen weiter von Twelve Data.
+- Reaktion wird jetzt anhand `reportTime` (pre-/post-market) am korrekten Tag gemessen.
+- Klare Fehlermeldung mit Handlungsanweisung, wenn kein Earnings-Zugang vorhanden ist.
+
 ## [1.2.0] — 2026-07-23
 ### Neu
 - **Fibonacci-Zonen** im Charts-Reiter:
