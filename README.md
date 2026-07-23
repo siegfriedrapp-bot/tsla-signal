@@ -1,8 +1,8 @@
-# 📈 TSLA Signal — v1.1.0
+# 📈 TSLA Signal — v1.1.1
 
 Eine installierbare **iPhone-Web-App (PWA)**, die technische Analyse- und **Muster-Signale** für die **Tesla-Aktie (TSLA)** berechnet — aus der kompletten Kurshistorie.
 
-![version](https://img.shields.io/badge/version-1.1.0-blue)
+![version](https://img.shields.io/badge/version-1.1.1-blue)
 ![type](https://img.shields.io/badge/type-PWA-16c784)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 ![advice](https://img.shields.io/badge/Anlageberatung-nein-ea3943)
@@ -28,8 +28,8 @@ Eine installierbare **iPhone-Web-App (PWA)**, die technische Analyse- und **Must
 ## Auf dem iPhone installieren & starten
 
 ### Schritt 1 — kostenlosen API-Key holen (einmalig)
-- **Alpha Vantage** (empfohlen): [alphavantage.co/support/#api-key](https://www.alphavantage.co/support/#api-key) → E-Mail eingeben → Key wird sofort angezeigt. Gratis, 25 Abfragen/Tag (die App speichert lokal, das reicht).
-- Alternative **Twelve Data**: [twelvedata.com](https://twelvedata.com) → registrieren → Dashboard → API-Key.
+- **Twelve Data** (empfohlen): [twelvedata.com](https://twelvedata.com) → registrieren → Dashboard → API-Key. Gratis, 800 Abfragen/Tag, **volle Kurshistorie** (bei Tesla die komplette Historie seit dem Börsengang).
+- Alternative **Alpha Vantage**: [alphavantage.co/support/#api-key](https://www.alphavantage.co/support/#api-key) — liefert im Gratis-Tarif inzwischen nur noch ~100 Tage (volle Historie = Premium), daher für dieses Dashboard **nicht empfohlen**.
 
 ### Schritt 2 — App öffnen (HTTPS, direkt über GitHub Pages)
 Auf dem iPhone in **Safari** öffnen:

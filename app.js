@@ -2,7 +2,7 @@
 /* ============================================================
    TSLA Signal — technisches Analyse-Dashboard (keine Anlageberatung)
    ============================================================ */
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 
 /* ---------- Storage ---------- */
 const LS = {
@@ -11,7 +11,8 @@ const LS = {
   del(k){ try{ localStorage.removeItem(k); }catch(e){} }
 };
 const CFG_KEY='tsla_cfg';
-const cfg = Object.assign({ provider:'alphavantage', apiKey:'', symbol:'TSLA' }, LS.get(CFG_KEY,{}));
+const cfg = Object.assign({ provider:'twelvedata', apiKey:'', symbol:'TSLA' }, LS.get(CFG_KEY,{}));
+let historyNote=''; // Warnhinweis bei eingeschränkter Historie (z. B. Alpha Vantage Gratis)
 
 /* ---------- State ---------- */
 let DATA = null;      // {dates:[], o:[], h:[], l:[], c:[], v:[]}
@@ -274,13 +275,20 @@ function backtest(){
    Data providers
    ============================================================ */
 async function fetchDaily(){
+  historyNote='';
   const sym=cfg.symbol.trim().toUpperCase(), key=cfg.apiKey.trim();
   if(!key) throw new Error('Kein API-Schlüssel gesetzt. Öffne „Setup".');
   if(cfg.provider==='alphavantage'){
-    const url=`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${sym}&outputsize=full&apikey=${key}`;
-    const j=await (await fetch(url)).json();
+    const callAV=async os=>(await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${sym}&outputsize=${os}&apikey=${key}`)).json();
+    let j=await callAV('full');
+    const isPremium=x=>x['Information'] && /premium|outputsize=full/i.test(x['Information']);
+    if(isPremium(j)){
+      // Gratis-Konto: volle Historie gesperrt → auf compact (~100 Tage) ausweichen + warnen
+      j=await callAV('compact');
+      historyNote='⚠️ Alpha Vantage Gratis liefert nur ~100 Tage — SMA200, Saison, Muster & Backtest bleiben leer. In Setup auf „Twelve Data" wechseln (kostenlos, volle Historie).';
+    }
     if(j['Error Message']) throw new Error('Symbol/Anbieter-Fehler: '+j['Error Message']);
-    if(j['Note']||j['Information']) throw new Error('Limit erreicht oder Key-Problem: '+(j['Note']||j['Information']));
+    if(j['Note']||j['Information']) throw new Error('Limit/Key-Problem: '+(j['Note']||j['Information']));
     const ts=j['Time Series (Daily)']; if(!ts) throw new Error('Unerwartete Antwort von Alpha Vantage.');
     const rows=Object.keys(ts).sort().map(d=>({d, o:+ts[d]['1. open'], h:+ts[d]['2. high'], l:+ts[d]['3. low'], c:+ts[d]['4. close'], v:+ts[d]['5. volume']}));
     return toSeries(rows);
@@ -315,7 +323,8 @@ async function loadData(force=false){
     DATA=await fetchDaily();
     LS.set(ck,{savedAt:Date.now(),data:DATA});
     computeAll(); renderAll();
-    banner('Aktualisiert · Stand '+fmtDate(last(DATA.dates)),'ok',3000);
+    if(historyNote) banner(historyNote,'err');
+    else banner('Aktualisiert · Stand '+fmtDate(last(DATA.dates))+' · '+DATA.c.length+' Handelstage','ok',3500);
   }catch(e){
     // Fallback auf evtl. vorhandenen (alten) Cache
     const cached=LS.get(ck,null);

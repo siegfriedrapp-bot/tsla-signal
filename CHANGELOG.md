@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.1] — 2026-07-23
+### Behoben / Geändert
+- **Twelve Data ist jetzt Standard-Anbieter** — liefert gratis die volle Kurshistorie (CORS-fähig).
+  Grund: Alpha Vantage hat `outputsize=full` zur Premium-Funktion gemacht, der Gratis-Tarif
+  gab nur noch ~100 Tage (zu wenig für SMA200, Saison, Muster, Backtest).
+- Alpha Vantage: erkennt die Premium-Sperre, weicht auf `compact` aus und zeigt einen klaren
+  Warnhinweis mit Empfehlung, auf Twelve Data zu wechseln.
+- Erfolgsmeldung zeigt jetzt die Anzahl geladener Handelstage.
+
 ## [1.1.0] — 2026-07-23
 ### Neu
 - **Muster-Erkennung** (Reiter „Muster" 🔁):

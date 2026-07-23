@@ -5,8 +5,8 @@ Eine mobile Web-App (PWA), die technische Analyse-Signale für **Tesla (TSLA)** 
 **Keine Anlageberatung.** Reines Analyse-/Lernwerkzeug.
 
 ## 1. Kostenlosen API-Key holen (einmalig)
-- **Alpha Vantage** (empfohlen): https://www.alphavantage.co/support/#api-key → E-Mail eingeben → Key wird sofort angezeigt. Gratis, 25 Abfragen/Tag (die App speichert lokal zwischen, das reicht locker).
-- Alternative **Twelve Data**: https://twelvedata.com → registrieren → Dashboard → API-Key. Gratis, 800 Abfragen/Tag.
+- **Twelve Data** (empfohlen): https://twelvedata.com → registrieren → Dashboard → API-Key. Gratis, 800 Abfragen/Tag, **volle Kurshistorie**.
+- Alternative **Alpha Vantage**: https://www.alphavantage.co/support/#api-key — liefert gratis aber nur noch ~100 Tage (volle Historie ist Premium), daher **nicht empfohlen** für dieses Dashboard.
 
 ## 2. Auf dem PC testen
 Der Testserver läuft evtl. schon. Sonst im Ordner `tesla`:
